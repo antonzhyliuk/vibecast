@@ -1,16 +1,13 @@
-{application, vibecast,
- [{description, "An OTP application"},
+{application, mp3,
+ [{description, "Mp3 streaming and processing application"},
   {vsn, "0.1.0"},
   {registered, []},
-  {mod, { vibecast_app, []}},
   {applications,
    [kernel,
-    stdlib,
-    ranch,
-    mp3
+    stdlib
    ]},
   {env,[]},
-  {modules, []},
+  {modules, [mp3_player]},
 
   {maintainers, []},
   {licenses, []},

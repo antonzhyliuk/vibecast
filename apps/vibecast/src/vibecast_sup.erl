@@ -28,10 +28,18 @@ start_link() ->
 
 init([]) ->
     {ok, Port} = application:get_env(vibecast, port),
+    % {ok, Dir} = application:get_env(vibecast, mp3_dir),
     ListenerSpec = ranch:child_spec(vibecast_shoutcast, 100,
 				    ranch_tcp, [{port, Port}],
 				    shoutcast_protocol, []),
-    {ok, {{one_for_one, 10, 10}, [ListenerSpec]}}.
+    Mp3PlayerSpec = #{id => mp3_player,
+		      start => {mp3_player, start_link, ["/Users/electrostation/Music/Twoism Records/OOT001 Various Artists - One on Twoism Vol.1 2007"]},
+		      restart => permanent,
+		      shutdown => 10000,
+		      type => worker,
+		      modules => []},
+
+    {ok, {{one_for_one, 10, 10}, [ListenerSpec, Mp3PlayerSpec]}}.
 
 %%====================================================================
 %% Internal functions
