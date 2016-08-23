@@ -33,12 +33,13 @@ stream_loop(Socket, Transport) ->
     Transport:close(Socket).
 
 header_response() ->
+    {ok, Port} = application:get_env(vibecast, port),
     ["ICY 200 OK\r\n",
      "icy-notice1: AE vibenation\r\n",
      "icy-notice2: Erlang Shoutcast server\r\n",
      "icy-name: Vibecast\r\n",
      "icy-genre: Ambient Techno\r\n",
-     "icy-url: http://localhost:8438\r\n",
+     "icy-url: http://localhost:" ++ Port ++ "\r\n",
      "content-type: audio/mpeg\r\n",
      "icy-pub: 1\r\n",
      "icy-metaint: 24576\r\n",

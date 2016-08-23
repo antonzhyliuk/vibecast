@@ -27,8 +27,9 @@ start_link() ->
 %%====================================================================
 
 init([]) ->
+    {ok, Port} = application:get_env(vibecast, port),
     ListenerSpec = ranch:child_spec(vibecast_shoutcast, 100,
-				    ranch_tcp, [{port, 8438}],
+				    ranch_tcp, [{port, Port}],
 				    shoutcast_protocol, []),
     {ok, {{one_for_one, 10, 10}, [ListenerSpec]}}.
 
