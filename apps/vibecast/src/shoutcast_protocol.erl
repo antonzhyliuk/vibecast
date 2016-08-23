@@ -32,7 +32,6 @@ stream_init(Socket, Transport) ->
 stream_loop(Socket, Transport) ->
     receive
 	{data, Data} ->
-	    io:format("sent: ~n~p~n", [Data]),
 	    Transport:send(Socket, Data)
     end,
     stream_loop(Socket, Transport).
@@ -47,6 +46,6 @@ header_response() ->
      "icy-url: http://localhost:" ++ integer_to_list(Port) ++ "\r\n",
      "content-type: audio/mpeg\r\n",
      "icy-pub: 1\r\n",
-     "icy-metaint: 24576\r\n",
+     "icy-metaint:24576\r\n",
      "icy-br: 96\r\n",
      "\r\n"].

@@ -7,16 +7,18 @@
 %% public interface
 -export([start_link/1, subscribe/0]).
 %% timer callback
--export([stream_tick/0]).
+-export([stream_chunk/0]).
 %% genserver callbacks
 -export([init/1, terminate/2, code_change/3, handle_cast/2, handle_call/3,
 	 handle_info/2]).
 
+-type current_file() :: {file, file:filename_all(), file:fd()}.
+-record(state, {files        :: [file:filename_all()],
+		current_file :: current_file(),
+		timer        :: timer:tref(),
+		subscribers  :: [pid()]}).
 
--record(state, {files :: [file:filename_all()],
-		current :: [file:filename_all()],
-		timer :: timer:tref(),
-		subscribers :: [pid()]}).
+-define(CHUNKSIZE, 24576).
 
 %%% Public interface -----------------------------------------------------------
 
@@ -28,17 +30,17 @@ subscribe() ->
 
 %%% Timer callback -------------------------------------------------------------
 
-stream_tick() ->
-    gen_server:cast(?MODULE, send_chunk).
+stream_chunk() ->
+    gen_server:cast(?MODULE, stream_chunk).
 
 %%% gen_server callbacks -------------------------------------------------------
 
 init(Dir) ->
     io:format("Starting player in dir ~p~n", [Dir]),
-    {ok, TRef} = timer:apply_interval(1000, ?MODULE, stream_tick, []),
+    {ok, TRef} = timer:apply_interval(1000, ?MODULE, stream_chunk, []),
     {ok, [File|Files]} = mp3_files(Dir),
     State = #state{files = Files,
-		   current = File,
+		   current_file = new_current_file(File),
 		   timer = TRef,
 		   subscribers = []},
     {ok, State}.
@@ -49,10 +51,21 @@ terminate(_Reason, #state{timer = TRef}) ->
 
 handle_cast({subscribe, Pid}, #state{subscribers = Subscribers} = State) ->
     {noreply, State#state{subscribers = [Pid|Subscribers]}};
-handle_cast(send_chunk, #state{subscribers = Subscribers} = State) ->
-    lists:foreach(fun(Subscriber) ->
-			  Subscriber ! {data, <<"KEK\r\n">>}
-		  end, Subscribers),
+handle_cast(stream_chunk, #state{files = Files, subscribers = Subscribers,
+				 current_file = {file, Name, File}} = State) ->
+    State = case file:read(File, ?CHUNKSIZE) of
+		eof ->
+		    [NewFile|RestFiles] = Files,
+		    NewCurrFile = new_current_file(NewFile),
+		    {file, _Name, File1} = NewCurrFile,
+		    {ok, Chunk} = file:read(File1, ?CHUNKSIZE),
+		    send(Subscribers, Chunk),
+		    State#state{files = RestFiles ++ [Name],
+				current_file = NewCurrFile};
+		{ok, Chunk} ->
+		    send(Subscribers, Chunk),
+		    State
+	    end,
     {noreply, State}.
 
 handle_call(_Msg, _From, State) ->
@@ -65,6 +78,15 @@ code_change(_Version, State, _Extra) ->
     {ok, State}.
 
 %%% internal functions ---------------------------------------------------------
+
+new_current_file(Filename) ->
+    {ok, Fd} = file:open(Filename, [read]),
+    {file, Filename, Fd}.
+
+send(Recepients, Data) ->
+    lists:foreach(fun(Recepient) ->
+			  Recepient ! {data, Data}
+		  end, Recepients).
 
 mp3_files(Dir) ->
     {ok, Re} = re:compile(".mp3", [caseless]),
