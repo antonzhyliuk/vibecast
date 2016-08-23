@@ -37,7 +37,7 @@ stream_chunk() ->
 
 init(Dir) ->
     io:format("Starting player in dir ~p~n", [Dir]),
-    {ok, TRef} = timer:apply_interval(1000, ?MODULE, stream_chunk, []),
+    {ok, TRef} = timer:apply_interval(500, ?MODULE, stream_chunk, []),
     {ok, [File|Files]} = mp3_files(Dir),
     State = #state{files = Files,
 		   current_file = new_current_file(File),
@@ -53,7 +53,7 @@ handle_cast({subscribe, Pid}, #state{subscribers = Subscribers} = State) ->
     {noreply, State#state{subscribers = [Pid|Subscribers]}};
 handle_cast(stream_chunk, #state{files = Files, subscribers = Subscribers,
 				 current_file = {file, Name, File}} = State) ->
-    State = case file:read(File, ?CHUNKSIZE) of
+    NewState = case file:read(File, ?CHUNKSIZE) of
 		eof ->
 		    [NewFile|RestFiles] = Files,
 		    NewCurrFile = new_current_file(NewFile),
@@ -66,7 +66,7 @@ handle_cast(stream_chunk, #state{files = Files, subscribers = Subscribers,
 		    send(Subscribers, Chunk),
 		    State
 	    end,
-    {noreply, State}.
+    {noreply, NewState}.
 
 handle_call(_Msg, _From, State) ->
     {noreply, State}.
