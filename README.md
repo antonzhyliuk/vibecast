@@ -1,7 +1,7 @@
 vibecast
 =====
 
-An OTP application
+Shoutcast server implemented in Erlang/OTP
 
 Build
 -----
