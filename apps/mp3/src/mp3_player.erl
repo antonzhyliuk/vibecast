@@ -12,11 +12,15 @@
 -export([init/1, terminate/2, code_change/3, handle_cast/2, handle_call/3,
 	 handle_info/2]).
 
--type current_file() :: {file, file:filename_all(), file:fd()}.
--record(state, {files        :: [file:filename_all()],
-		current_file :: current_file(),
-		timer        :: timer:tref(),
-		subscribers  :: [pid()]}).
+-record(current_file, { name :: file:filename_all(),
+			file :: file:fd(),
+			position :: pos_integer(),
+			size :: pos_integer() }).
+
+-record(state, { files        :: [file:filename_all()],
+		 current_file :: #current_file{},
+		 timer        :: timer:tref(),
+		 subscribers  :: [pid()] }).
 
 -define(CHUNKSIZE, 24576).
 
@@ -51,22 +55,33 @@ terminate(_Reason, #state{timer = TRef}) ->
 
 handle_cast({subscribe, Pid}, #state{subscribers = Subscribers} = State) ->
     {noreply, State#state{subscribers = [Pid|Subscribers]}};
-handle_cast(stream_chunk, #state{files = Files, subscribers = Subscribers,
-				 current_file = {file, Name, File}} = State) ->
-    NewState = case file:read(File, ?CHUNKSIZE) of
-		eof ->
-		    [NewFile|RestFiles] = Files,
-		    NewCurrFile = new_current_file(NewFile),
-		    {file, _Name, File1} = NewCurrFile,
-		    {ok, Chunk} = file:read(File1, ?CHUNKSIZE),
-		    send(Subscribers, Chunk),
-		    State#state{files = RestFiles ++ [Name],
-				current_file = NewCurrFile};
-		{ok, Chunk} ->
-		    send(Subscribers, Chunk),
-		    State
-	    end,
-    {noreply, NewState}.
+
+handle_cast(stream_chunk, #state{ subscribers = Subscribers,
+				  current_file = #current_file{ position = Pos,
+								size = Size,
+								file = File
+							      } = CurrentFile
+				} = State) when Pos + ?CHUNKSIZE < Size ->
+    {ok, Chunk} = file:pread(File, Pos, ?CHUNKSIZE),
+    send(Subscribers, Chunk),
+    NewCurrentFile = CurrentFile#current_file{position = Pos + ?CHUNKSIZE},
+    {noreply, State#state{current_file = NewCurrentFile}};
+handle_cast(stream_chunk, #state{ subscribers = Subscribers,
+				  files = [NewFile|Rest],
+				  current_file = #current_file{ name = Name,
+								position = Pos,
+								file = File,
+								size = Size
+							      } = CurrentFile
+				} = State) ->
+    {ok, Chunk1} = file:pread(File, Pos, ?CHUNKSIZE),
+    AdditionalChunkSize = Pos + ?CHUNKSIZE - Size,
+    NextCurrFile = #current_file{file = File1} = new_current_file(NewFile),
+    {ok, Chunk2} = file:pread(File1, 0, AdditionalChunkSize),
+    send(Subscribers, list_to_binary([Chunk1, Chunk2])),
+    NewCurrentFile = NextCurrFile#current_file{position = AdditionalChunkSize},
+    {noreply, State#state{current_file = NewCurrentFile,
+			  files = Rest ++ [Name]}}.
 
 handle_call(_Msg, _From, State) ->
     {noreply, State}.
@@ -80,8 +95,11 @@ code_change(_Version, State, _Extra) ->
 %%% internal functions ---------------------------------------------------------
 
 new_current_file(Filename) ->
-    {ok, Fd} = file:open(Filename, [read]),
-    {file, Filename, Fd}.
+    {ok, Fd} = file:open(Filename, [binary, read]),
+    #current_file{name = Filename,
+		  file =  Fd,
+		  position = 0,
+		  size = filelib:file_size(Filename)}.
 
 send(Recepients, Data) ->
     lists:foreach(fun(Recepient) ->

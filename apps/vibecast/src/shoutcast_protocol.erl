@@ -7,6 +7,8 @@
 -export([start_link/4]).
 -export([init/4]).
 
+-define(CHUNKSIZE, 24576).
+
 start_link(ListenerPid, Socket, Transport, Opts) ->
     Pid = spawn_link(?MODULE, init, [ListenerPid, Socket, Transport, Opts]),
     {ok, Pid}.
@@ -32,7 +34,10 @@ stream_init(Socket, Transport) ->
 stream_loop(Socket, Transport) ->
     receive
 	{data, Data} ->
-	    Transport:send(Socket, [Data, <<0>>])
+	    ?CHUNKSIZE = byte_size(Data), % chunk size contract
+	    Transport:send(Socket, [Data, <<0>>]); % zero is icecast metadata header
+	Any ->
+	    io:format("Strange messsage: ~p~n", [Any])
     end,
     stream_loop(Socket, Transport).
 
@@ -46,7 +51,7 @@ header_response() ->
      "icy-url: http://localhost:" ++ integer_to_list(Port) ++ "\r\n",
      "content-type: audio/mpeg\r\n",
      "icy-pub: 1\r\n",
-     "icy-metaint:24576\r\n",
+     "icy-metaint:" ++ integer_to_list(?CHUNKSIZE) ++ "\r\n",
      "icy-metadata:0\r\n",
      "icy-br: 96\r\n",
      "\r\n"].
