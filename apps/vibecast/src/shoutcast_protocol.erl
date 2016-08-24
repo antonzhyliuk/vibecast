@@ -32,7 +32,7 @@ stream_init(Socket, Transport) ->
 stream_loop(Socket, Transport) ->
     receive
 	{data, Data} ->
-	    Transport:send(Socket, Data)
+	    Transport:send(Socket, [Data, <<0>>])
     end,
     stream_loop(Socket, Transport).
 
@@ -47,5 +47,6 @@ header_response() ->
      "content-type: audio/mpeg\r\n",
      "icy-pub: 1\r\n",
      "icy-metaint:24576\r\n",
+     "icy-metadata:0\r\n",
      "icy-br: 96\r\n",
      "\r\n"].
