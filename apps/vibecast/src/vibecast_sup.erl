@@ -8,7 +8,7 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/0]).
+-export([start_link/1]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -19,21 +19,19 @@
 %% API functions
 %%====================================================================
 
-start_link() ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
+start_link(Args) ->
+    supervisor:start_link({local, ?SERVER}, ?MODULE, Args).
 
 %%====================================================================
 %% Supervisor callbacks
 %%====================================================================
 
-init([]) ->
-    {ok, Port} = application:get_env(vibecast, port),
-    % {ok, Dir} = application:get_env(vibecast, mp3_dir),
+init([Port, Dir]) ->
     ListenerSpec = ranch:child_spec(vibecast_shoutcast, 100,
 				    ranch_tcp, [{port, Port}],
 				    shoutcast_protocol, []),
     Mp3PlayerSpec = #{id => mp3_player,
-		      start => {mp3_player, start_link, ["/Users/electrostation/Music/Twoism Records/OOT001 Various Artists - One on Twoism Vol.1 2007"]},
+		      start => {mp3_player, start_link, [Dir]},
 		      restart => permanent,
 		      shutdown => 10000,
 		      type => worker,

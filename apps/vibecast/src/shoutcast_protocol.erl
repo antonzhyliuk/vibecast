@@ -35,11 +35,14 @@ stream_loop(Socket, Transport) ->
     receive
 	{data, Data} ->
 	    ?CHUNKSIZE = byte_size(Data), % chunk size contract
-	    Transport:send(Socket, [Data, <<0>>]); % zero is icecast metadata header
+	    case Transport:send(Socket, [Data, <<0>>]) of % zero is meta header
+		{error, closed} -> Transport:close(Socket);
+		_ -> stream_loop(Socket, Transport)
+	    end;
 	Any ->
-	    io:format("Strange messsage: ~p~n", [Any])
-    end,
-    stream_loop(Socket, Transport).
+	    io:format("Strange messsage: ~p~n", [Any]),
+	    stream_loop(Socket, Transport)
+    end.
 
 header_response() ->
     {ok, Port} = application:get_env(vibecast, port),
