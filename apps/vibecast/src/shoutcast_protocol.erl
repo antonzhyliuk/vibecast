@@ -36,7 +36,9 @@ stream_loop(Socket, Transport) ->
 	{data, Data} ->
 	    ?CHUNKSIZE = byte_size(Data), % chunk size contract
 	    case Transport:send(Socket, [Data, <<0>>]) of % zero is meta header
-		{error, closed} -> Transport:close(Socket);
+		{error, closed} ->
+		    mp3_player:unsubscribe(),
+		    Transport:close(Socket);
 		_ -> stream_loop(Socket, Transport)
 	    end;
 	Any ->

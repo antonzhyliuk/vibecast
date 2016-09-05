@@ -5,7 +5,7 @@
 -author("Anton Zhiliuk [crashtown.pal@gmail.com]").
 
 %% public interface
--export([start_link/1, subscribe/0]).
+-export([start_link/1, subscribe/0, unsubscribe/0]).
 %% timer callback
 -export([stream_chunk/0]).
 %% genserver callbacks
@@ -32,6 +32,9 @@ start_link(Dir) ->
 subscribe() ->
     gen_server:cast(?MODULE, {subscribe, self()}).
 
+unsubscribe() ->
+    gen_server:cast(?MODULE, {unsubscribe, self()}).
+
 %%% Timer callback -------------------------------------------------------------
 
 stream_chunk() ->
@@ -55,6 +58,10 @@ terminate(_Reason, #state{timer = TRef}) ->
 
 handle_cast({subscribe, Pid}, #state{subscribers = Subscribers} = State) ->
     {noreply, State#state{subscribers = [Pid|Subscribers]}};
+
+handle_cast({unsubscribe, Pid}, #state{subscribers = Subscribers} = State) ->
+    NewSubs = lists:delete(Pid, Subscribers),
+    {noreply, State#state{subscribers = NewSubs}};
 
 handle_cast(stream_chunk, #state{ subscribers = Subscribers,
 				  current_file = #current_file{ position = Pos,
