@@ -23,6 +23,7 @@
 		 subscribers  :: [pid()] }).
 
 -define(CHUNKSIZE, 24576).
+-define(SEND_CHUNK_INTERVAL, 600).
 
 %%% Public interface -----------------------------------------------------------
 
@@ -44,7 +45,7 @@ stream_chunk() ->
 
 init(Dir) ->
     io:format("Starting player in dir ~p~n", [Dir]),
-    {ok, TRef} = timer:apply_interval(500, ?MODULE, stream_chunk, []),
+    {ok, TRef} = timer:apply_interval(?SEND_CHUNK_INTERVAL, ?MODULE, stream_chunk, []),
     {ok, [File|Files]} = mp3_files(Dir),
     State = #state{files = Files,
 		   current_file = new_current_file(File),

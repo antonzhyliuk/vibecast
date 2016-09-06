@@ -58,5 +58,5 @@ header_response() ->
      "icy-pub: 1\r\n",
      "icy-metaint:" ++ integer_to_list(?CHUNKSIZE) ++ "\r\n",
      "icy-metadata:0\r\n",
-     "icy-br: 96\r\n",
+     "icy-br: 320\r\n",
      "\r\n"].
